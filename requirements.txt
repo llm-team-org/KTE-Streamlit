@@ -7,3 +7,4 @@ faiss-cpu
 openai
 aioboto3
 boto3
+google-genai
