@@ -1,6 +1,6 @@
 import streamlit as st
 import asyncio
-from functions import get_law_summary
+from functions import get_summary
 
 # Configure Streamlit page
 st.set_page_config(
@@ -68,7 +68,7 @@ if prompt := st.chat_input("Ask your legal question..."):
         with st.spinner("Analyzing your query..."):
             try:
                 print(f"[DEBUG] Starting query processing for: {prompt}")
-                summary, sources = asyncio.run(get_law_summary(prompt,language=language))
+                summary, sources = get_summary(prompt,language=language)
                 print(f"[DEBUG] Query completed successfully")
                 print(f"[DEBUG] Summary length: {len(summary) if summary else 0}")
                 print(f"[DEBUG] Number of sources: {len(sources) if sources else 0}")

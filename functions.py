@@ -4,10 +4,14 @@ import tempfile
 import glob
 from pathlib import Path
 import aioboto3
-from openai import AsyncOpenAI
+#from openai import AsyncOpenAI
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 from langchain_cohere import CohereRerank
+
+from google import genai
+from google.genai import types
+
 from langchain.retrievers import ContextualCompressionRetriever
 from constants import AWS_REGION, S3_BUCKET_NAME, OPENAI_EMBEDDING_MODEL,OPENAI_LLM,COHERE_RERANKER_MODEL,FAISS_INDEX_PATH
 from dotenv import load_dotenv
@@ -17,9 +21,29 @@ OPENAI_API_KEY=os.getenv("OPENAI_API_KEY")
 COHERE_API_KEY=os.getenv("COHERE_API_KEY")
 AWS_ACCESS_KEY_ID=os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY=os.getenv("AWS_SECRET_ACCESS_KEY")
+GEMINI_API_KEY=os.getenv("GEMINI_API_KEY")
 
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY, model=OPENAI_EMBEDDING_MODEL)
 index = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+
+get_law_summary_decleration = {
+    "name": "get_law_summary",
+    "description": " Respond to queries regarding legal or law matters.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Query of the user",
+            },
+            "language": {
+                "type": "string",
+                "description": "Language in which answer should be in based on language of user query",
+            }
+        },
+        "required": ["query", "language"],
+    },
+}
 
 async def get_law_summary(query: str,language: str):
     """
@@ -45,8 +69,9 @@ async def get_law_summary(query: str,language: str):
             sources.append(url)
         with tempfile.TemporaryDirectory() as temp_dir:
             all_texts = await _download_and_read_sources(reranked_sources, temp_dir)
-            summary = await _get_openai_summary(query, all_texts,language)
-            return summary, sources
+            return all_texts, sources
+            #summary = await _get_openai_summary(query, all_texts,language)
+            #return summary, sources
 
 async def _download_and_read_sources( sources: list, temp_dir: str):
     """
@@ -83,18 +108,62 @@ async def _download_and_read_sources( sources: list, temp_dir: str):
 
     return all_texts
 
-async def _get_openai_summary(query: str, all_texts: list,language: str):
-    """
-    Generates a summary using the OpenAI API.
-    """
-    if not all_texts:
-        return "Could not retrieve the content of the relevant legal documents.", []
-    client=AsyncOpenAI(api_key=OPENAI_API_KEY)
-    response = await client.chat.completions.create(
-        model=OPENAI_LLM,
-        messages=[
-            {"role": "system", "content": f"You are a highly intelligent Korean legal assistant. Summarize and analyze the following Korean laws to provide clear and accurate answers to user questions. Use plain language, but remain legally accurate. Laws: \n '{all_texts}'. Give response only in {language} language"},
-            {"role": "user", "content": query}
-        ],
+# async def _get_openai_summary(query: str, all_texts: list,language: str):
+#     """
+#     Generates a summary using the OpenAI API.
+#     """
+#     if not all_texts:
+#         return "Could not retrieve the content of the relevant legal documents.", []
+#     client=AsyncOpenAI(api_key=OPENAI_API_KEY)
+#     response = await client.chat.completions.create(
+#         model=OPENAI_LLM,
+#         messages=[
+#             {"role": "system", "content": f"You are a highly intelligent Korean legal assistant. Summarize and analyze the following Korean laws to provide clear and accurate answers to user questions. Use plain language, but remain legally accurate. Laws: \n '{all_texts}'. Give response only in {language} language"},
+#             {"role": "user", "content": query}
+#         ],
+#     )
+#     return response.choices[0].message.content
+
+def get_summary(query: str,language: str):
+    # Configure the client and tools
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    tools = types.Tool(function_declarations=[get_law_summary_decleration])
+    #system_prompt="You are a highly intelligent Korean legal assistant. Summarize and analyze the following Korean laws to provide clear and accurate answers to user questions. Use plain language, but remain legally accurate. Laws: \n '{all_texts}'. Give response only in {language} language"
+    config = types.GenerateContentConfig(tools=[tools])
+    contents = [
+        types.Content(
+            role="user", parts=[types.Part(text=query)]
+        )
+    ]
+
+    # Send request with function declarations
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=contents,
+        config=config,
     )
-    return response.choices[0].message.content
+
+    # Check for a function call
+    if response.candidates[0].content.parts[0].function_call:
+        function_call = response.candidates[0].content.parts[0].function_call
+        if function_call.name == "get_law_summary":
+            all_texts,sources = asyncio.run(get_law_summary(**function_call.args))
+            function_response_part = types.Part.from_function_response(
+                name=function_call.name,
+                response={"result": all_texts},
+            )
+
+            # Append function call and result of the function execution to contents
+            contents.append(response.candidates[0].content)  # Append the content from the model's response.
+            contents.append(types.Content(role="user", parts=[function_response_part]))  # Append the function response
+            system_prompt = f"You are a highly intelligent Korean legal assistant. Summarize and analyze the following Korean laws to provide clear and accurate answers to user questions. Use plain language, but remain legally accurate. Laws: \n '{all_texts}'. Give response only in {language} language"
+            config = types.GenerateContentConfig(tools=[tools], system_instruction=system_prompt)
+            final_response = client.models.generate_content(
+                model="gemini-2.5-pro",
+                config=config,
+                contents=contents,
+            )
+
+            return final_response.text , sources
+    else:
+        return response.text, []
