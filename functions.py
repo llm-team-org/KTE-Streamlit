@@ -21,7 +21,7 @@ AWS_SECRET_ACCESS_KEY=os.getenv("AWS_SECRET_ACCESS_KEY")
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY, model=OPENAI_EMBEDDING_MODEL)
 index = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
 
-async def get_law_summary(query: str):
+async def get_law_summary(query: str,language: str):
     """
     Main method to get a summarized answer for a legal query.
     """
@@ -37,10 +37,16 @@ async def get_law_summary(query: str):
     if not reranked_sources:
         return "I couldn't find any relevant legal documents to answer your question.", []
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        all_texts = await _download_and_read_sources(reranked_sources, temp_dir)
-        summary = await _get_openai_summary(query, all_texts)
-        return summary, reranked_sources
+    if reranked_results:
+        numbers = [f.split('/')[1].split('.')[0] for f in reranked_sources]
+        sources=[]
+        for item in numbers:
+            url = f"https://www.law.go.kr/DRF/lawService.do?OC=doaz&target=law&MST={item}&type=HTML"
+            sources.append(url)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            all_texts = await _download_and_read_sources(reranked_sources, temp_dir)
+            summary = await _get_openai_summary(query, all_texts,language)
+            return summary, sources
 
 async def _download_and_read_sources( sources: list, temp_dir: str):
     """
@@ -77,7 +83,7 @@ async def _download_and_read_sources( sources: list, temp_dir: str):
 
     return all_texts
 
-async def _get_openai_summary(query: str, all_texts: list):
+async def _get_openai_summary(query: str, all_texts: list,language: str):
     """
     Generates a summary using the OpenAI API.
     """
@@ -87,7 +93,7 @@ async def _get_openai_summary(query: str, all_texts: list):
     response = await client.chat.completions.create(
         model=OPENAI_LLM,
         messages=[
-            {"role": "system", "content": f"You are a highly intelligent Korean legal assistant. Summarize and analyze the following Korean laws to provide clear and accurate answers to user questions. Use plain language, but remain legally accurate. Laws: \n '{all_texts}'"},
+            {"role": "system", "content": f"You are a highly intelligent Korean legal assistant. Summarize and analyze the following Korean laws to provide clear and accurate answers to user questions. Use plain language, but remain legally accurate. Laws: \n '{all_texts}'. Give response only in {language} language"},
             {"role": "user", "content": query}
         ],
     )

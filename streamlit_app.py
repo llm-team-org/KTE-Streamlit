@@ -25,6 +25,11 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
+    language = st.selectbox(
+        "Choose Language",
+        options=["English", "Korean"],
+        index=0
+    )
     st.markdown("---")
     # st.markdown(f"**Messages:** {len(st.session_state.messages)}")
 #
@@ -63,7 +68,7 @@ if prompt := st.chat_input("Ask your legal question..."):
         with st.spinner("Analyzing your query..."):
             try:
                 print(f"[DEBUG] Starting query processing for: {prompt}")
-                summary, sources = asyncio.run(get_law_summary(prompt))
+                summary, sources = asyncio.run(get_law_summary(prompt,language=language))
                 print(f"[DEBUG] Query completed successfully")
                 print(f"[DEBUG] Summary length: {len(summary) if summary else 0}")
                 print(f"[DEBUG] Number of sources: {len(sources) if sources else 0}")
@@ -75,7 +80,10 @@ if prompt := st.chat_input("Ask your legal question..."):
                 if sources:
                     with st.expander("📚 View Sources"):
                         for i, source in enumerate(sources, 1):
-                            st.code(f"{i}. {source}", language=None)
+                            if source.startswith(('http://', 'https://')):
+                                st.markdown(f"{i}. [{source}]({source})")
+                            else:
+                                st.code(f"{i}. {source}", language=None)
 
                 # Add assistant message to session state
                 st.session_state.messages.append({
