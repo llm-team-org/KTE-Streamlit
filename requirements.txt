@@ -2,7 +2,7 @@ streamlit
 python-dotenv
 langchain
 langchain-openai
-langchain-cohere
+langchain-cohere==0.3.2
 faiss-cpu
 openai
 aioboto3
