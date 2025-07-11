@@ -1,0 +1,9 @@
+streamlit
+python-dotenv
+langchain
+langchain-openai
+langchain-cohere
+faiss-cpu
+openai
+aioboto3
+boto3
