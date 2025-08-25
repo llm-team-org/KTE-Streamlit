@@ -11,26 +11,27 @@ from functions_5_4 import extraction_review, cleanup_temp_directory
 from functions_5_5 import auto_complete, cleanup_temp_directory_excel
 from functions_5_6 import finishing_material_comparison,cleanup_temp_directories_finishing
 from functions_5_7 import multi_doc_query
+
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="PDF Assistant",
-    page_icon="📄",
+    page_title="🏗️ KTE Demo",
+    page_icon="🏗️",
     layout="wide"
 )
 
 # --- Sidebar ---
 with st.sidebar:
-    st.title("📄 PDF Assistant")
+    st.title("🏗️ KTE Demo")
     st.markdown("---")
 
     # Module selection
     selected_module = st.selectbox(
         "Select Module",
-        ["Drawing Chatbot", "Extraction Review", "Excel Auto Complete", "Finishing Comparison", "Multi-Doc Answers"]
+        ["🎨 Drawing Chatbot", "📋 Extraction Review", "🔨 Excel Auto Complete", "🧱 Finishing Comparison", "📚 Multi-Doc Answers"]
     )
 
     # Conditional UI for the chatbot
-    if selected_module == "Drawing Chatbot":
+    if selected_module == "🎨 Drawing Chatbot":
         if st.button("Clear Conversation"):
             st.session_state.messages = []
             st.rerun()
@@ -40,7 +41,7 @@ with st.sidebar:
 # ==============================================================================
 # MODULE 1: DRAWING CHATBOT
 # ==============================================================================
-if selected_module == "Drawing Chatbot":
+if selected_module == "🎨 Drawing Chatbot":
     # Initialize session state for chatbot
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -115,8 +116,8 @@ if selected_module == "Drawing Chatbot":
 # ==============================================================================
 # MODULE 2: EXTRACTION REVIEW
 # ==============================================================================
-elif selected_module == "Extraction Review":
-    st.title("📊 Extraction Review")
+elif selected_module == "📋 Extraction Review":
+    st.title("📋 Extraction Review")
     st.markdown("Upload a PDF file to automatically extract review tables and download them as an Excel file.")
 
     uploaded_file = st.file_uploader("Choose a PDF file for extraction", type="pdf", key="extraction_uploader")
@@ -181,8 +182,8 @@ elif selected_module == "Extraction Review":
 # ==============================================================================
 # MODULE 3: EXCEL AUTO COMPLETE
 # ==============================================================================
-elif selected_module == "Excel Auto Complete":
-    st.title("🤖 Excel Auto Complete")
+elif selected_module == "🔨 Excel Auto Complete":
+    st.title("🔨 Excel Auto Complete")
     st.markdown("Upload an Excel file (`.xlsx`) to automatically fill the legal review column using AI.")
 
     uploaded_file = st.file_uploader(
@@ -253,8 +254,8 @@ elif selected_module == "Excel Auto Complete":
 # ==============================================================================
 # MODULE 4: FINISHING COMPARISON
 # ==============================================================================
-elif selected_module == "Finishing Comparison":
-    st.title("🔍 Finishing Material Comparison")
+elif selected_module == "🧱 Finishing Comparison":
+    st.title("🧱 Finishing Material Comparison")
     st.markdown(
         "Upload two PDF files (Drawing and Contract) to compare finishing materials and generate an Excel report.")
 
@@ -352,7 +353,7 @@ elif selected_module == "Finishing Comparison":
 # ==============================================================================
 # MODULE 5: MULTI-DOC ANSWERS
 # ==============================================================================
-elif selected_module == "Multi-Doc Answers":
+elif selected_module == "📚 Multi-Doc Answers":
     st.title("📚 Multi-Document Q&A")
     st.markdown("Upload multiple documents (PDF, DOCX, or XLSX) and ask a question to get answers from each document.")
 
