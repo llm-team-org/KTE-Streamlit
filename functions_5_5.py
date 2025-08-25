@@ -168,34 +168,50 @@ async def get_ai_response(data_row: dict):
     try:
         # Rerank documents based on the row data
         law_data, law_source = await reranked_results(query=str(data_row))
-        excel_auto_complete_system_prompt = f"""
-        You are an AI assistant specializing in legal compliance reviews for construction projects based on South Korean law.
-        Your task is to analyze a row from an Excel file that describes a specific task and determine the relevant legal requirements.
-        Based on the provided context from South Korean legal documents, you must fill in the "관련법 검토(AI)" (Legal Review (AI)) column.
 
-        **Instructions:**
-        1.  Carefully read the provided data for the task.
-        2.  Review the legal context provided.
-        3.  Identify the most relevant laws, articles, and obligations.
-        4.  Synthesize this information into a concise and clear review.
-        5.  Your output MUST be a JSON object with a single key: "관련법 검토(AI)".
+        def excel_auto_complete_system_prompt(data, law):
+            return f"""
+            You are a specialized AI assistant for legal and regulatory review of construction permits. Your primary task is to analyze permit data against applicable laws and generate accurate, concise legal reviews in Korean.
 
-        **Provided Task Data:**
-        ```json
-        {json.dumps(data_row, ensure_ascii=False, indent=2)}
-        ```
+            ## OBJECTIVE
+            Review and populate the '관련법 검토(AI)' field for construction permit entries by cross-referencing permit requirements with applicable legal frameworks.
 
-        **Legal Context from Documents:**
-        {law_data}
+            ## DATA STRUCTURE
+            Each permit entry contains:
+            - **인허가, 심의, 평가명**: Permit/review/evaluation name
+            - **정의**: Project/structure definition  
+            - **관련법**: Applicable laws and provisions
+            - **대상**: Target structure/project type
+            - **시기 접수**: Application submission timing
+            - **시기 완료**: Expected completion timing  
+            - **인허가청**: Responsible regulatory authority
+            - **관련법 검토(AI)**: [TO BE POPULATED] - Your legal review output
 
-        Now, generate the JSON output.
-        """
+            ## JUDGMENT CRITERIA
+            For each review, include appropriate status symbol:
+            ✅ **Complete Match**: All requirements align perfectly with applicable laws
+            ⚠️ **Partial Match**: Core framework correct, minor gaps or clarifications needed
+            ❌ **Mismatch**: Significant discrepancies between stated and actual legal requirements
+            🔍 **Requires Review**: Insufficient data or ambiguous requirements needing manual verification
+
+          Your task:
+          1. Carefully read and understand each entry in the list.
+          2. Based on the '관련법', '대상', '시기 접수', '시기 완료', and '인허가청' fields, generate a relevant and concise legal review and populate the '관련법 검토(AI)' field.
+          3. If you find '관련법', '대상', '시기 접수', '시기 완료', and '인허가청' fields are empty, leave the '관련법 검토(AI)' field empty.  
+          4. Return me only 관련법 검토(AI) in JSON format.
+
+          Here is the data:
+          {data}
+
+          For your more assistance here is law according to the data we fetch:
+          {law} 
+          """
 
         client = AsyncOpenAI(api_key=OPENAI_API_KEY)
         response = await client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
-                {"role": "system", "content": excel_auto_complete_system_prompt},
+                {"role": "system", "content": excel_auto_complete_system_prompt(data=data_row,law=law_data)},
                 {"role": "user", "content": "Please review my excel file data and fill the '관련법 검토(AI)' column."}
             ],
             response_format={"type": "json_object"},
